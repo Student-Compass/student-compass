@@ -461,7 +461,8 @@ async def login(payload: LoginRequest):
     email = payload.email.lower()
     user = await db.users.find_one({"email": email})
     if not user:
-        raise HTTPException(404, "No account found for that email.")
+        # Generic 401 to prevent account enumeration
+        raise HTTPException(401, "Invalid email or password.")
 
     # Brute-force lock
     lock_until = user.get("lock_until")
@@ -482,7 +483,7 @@ async def login(payload: LoginRequest):
         await db.users.update_one({"id": user["id"]}, {"$set": update})
         if attempts >= LOCKOUT_THRESHOLD:
             raise HTTPException(403, f"Too many attempts. Account locked for {LOCKOUT_SECONDS}s.")
-        raise HTTPException(401, "Wrong password.")
+        raise HTTPException(401, "Invalid email or password.")
 
     # Success — clear lock
     await db.users.update_one({"id": user["id"]}, {"$set": {"failed_attempts": 0, "lock_until": None}})
