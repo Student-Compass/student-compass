@@ -1,0 +1,97 @@
+{
+  "theme_and_archetype": {
+    "theme": "Light",
+    "archetype": "Swiss & High-Contrast (Archetype 4) - Institutional Modern",
+    "description": "An authoritative, clean, and functional aesthetic that balances the trusted CUNY institutional brand with the premium polish of a modern AI tool (like Claude or Perplexity)."
+  },
+  "colors": {
+    "brand": {
+      "cuny_navy": "#003366",
+      "cuny_gold": "#F1B521"
+    },
+    "surface": {
+      "background": "#F9FAFB",
+      "card": "#FFFFFF",
+      "chat_ai": "#FFFFFF",
+      "chat_user": "#f1f5f9"
+    },
+    "text": {
+      "primary": "#0f172a",
+      "secondary": "#475569",
+      "inverse": "#FFFFFF",
+      "accent": "#003366"
+    },
+    "interactive": {
+      "primary_btn": "#003366",
+      "primary_btn_hover": "#002244",
+      "secondary_btn": "#F1B521",
+      "secondary_btn_hover": "#D9A01B",
+      "border": "#e2e8f0",
+      "focus_ring": "#93c5fd"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "serif": "Playfair Display, serif",
+      "sans": "Manrope, sans-serif"
+    },
+    "hierarchy": {
+      "h1": "text-4xl md:text-5xl lg:text-6xl tracking-tight font-serif text-cuny_navy",
+      "h2": "text-2xl md:text-3xl font-sans font-semibold tracking-tight text-primary",
+      "h3": "text-xl sm:text-2xl font-sans font-medium text-primary",
+      "body": "text-base font-sans text-secondary leading-relaxed",
+      "college_name": "font-serif text-cuny_navy tracking-wide"
+    }
+  },
+  "layout_strategy": {
+    "header": "Sticky at the top, z-50. Glassmorphism (backdrop-blur-xl bg-white/80). Contains the SVG Spinning Compass Logo on the left and the Campus Switcher searchable dropdown on the right.",
+    "marquee": "Full-width section just below the header or above the hero. Displays CUNY college identities.",
+    "landing_hub": "Centered layout with generous padding (p-12 to p-24). Features a massive, high-contrast search bar in the center. Below the search bar, a 2x2 or 4-col bento grid of Suggestion Tiles.",
+    "ai_chat_interface": "App-style layout. Left Sidebar (width 260px, collapsible) holding 'Recent Queries' and 'Saved Resources'. Right Main Area holding scrollable chat history and a fixed bottom input bar (the transformed search bar)."
+  },
+  "animations": {
+    "compass_spin": {
+      "trigger": "Page load / continuous or on action",
+      "css": "animation: calibrateSpin 6s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;",
+      "keyframes": "@keyframes calibrateSpin { 0% { transform: rotate(0deg); } 50% { transform: rotate(1080deg); } 100% { transform: rotate(1440deg); } } (Adjust to snap to North/0deg)"
+    },
+    "progressive_disclosure": {
+      "trigger": "Focusing or clicking the massive hero search bar.",
+      "effect": "Use Framer Motion's layoutId. The hero search bar smoothly morphs into the bottom-fixed chat input. The landing page content fades out, the left sidebar slides in (from width 0 to 260px), and the chat container fades in."
+    },
+    "marquee_hover": {
+      "effect": "Items default to grayscale and opacity-70. On hover, transition to grayscale-0, opacity-100, scale-105, and reveal CUNY colors."
+    }
+  },
+  "components_and_features": {
+    "campus_switcher": "Shadcn Popover + Command component. Allows users to search and select CUNY schools (John Jay, Baruch, Hunter, etc.).",
+    "hero_search_bar": "Massive padding, thick border or subtle shadow, placeholder 'Ask Compass AI about John Jay...'. Needs a clear submit icon button inside.",
+    "suggestion_tiles": [
+      { "title": "Cross-Campus Events", "visual": "Use Lucide Calendar icon" },
+      { "title": "ID Replacement/Safety", "visual": "Use Lucide Shield icon" },
+      { "title": "Financial Aid Deadlines", "visual": "Use provided media URL" },
+      { "title": "Academic Advising", "visual": "Use provided media URL" }
+    ],
+    "chat_message": "Claude-style UI. AI replies have white background and subtle borders. User messages have soft gray background. AI replies must include a 'Save Resource' action button.",
+    "collapsible_sidebar": "Includes a toggle button. Sections for 'Recent Queries' and 'Saved Resources' with minimalist lists."
+  },
+  "media_urls": {
+    "tile_finance": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/e7b52324-aaeb-4417-9e67-9a2c5708afcb/images/a2be6d64f0b9e0abc4e5a05c0725ca048763702af7ba08ecf192858963cce21f.png",
+      "description": "Minimalist illustration for Financial Aid Deadlines tile"
+    },
+    "tile_academic": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/e7b52324-aaeb-4417-9e67-9a2c5708afcb/images/a221579ccb6305f4b9ccb7fd523f29538f1530d7d1c078a06a50b3266601313f.png",
+      "description": "Minimalist illustration for Academic Advising tile"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Install necessary dependencies: framer-motion, react-fast-marquee, lucide-react, and required Shadcn components (Command, Popover, Input, Button, ScrollArea).",
+    "Implement the SVG Spinning Compass logo manually. Draw a minimalist compass using SVG and apply the 'calibrateSpin' keyframe animation (6s cubic-bezier snapping to north) to the needle `<path>` or `<g>` element.",
+    "For the College Marquee: Since exact CUNY logo URLs are not provided, construct the marquee items using a combination of a Lucide icon (e.g., Landmark, Library) and the college name styled in Playfair Display. Apply a group hover effect that removes grayscale and applies CUNY Navy/Gold colors.",
+    "Implement the Progressive Disclosure seamlessly: The main state of the app should toggle between 'Landing' and 'Chat'. Use framer-motion's <AnimatePresence> and <motion.div layoutId='search-bar'> so the massive central search bar physically travels down to become the chat input.",
+    "Ensure 'Save Resource' buttons on AI chat replies are functional or clearly mocked, using a Bookmark icon.",
+    "Add 'data-testid' attributes to ALL interactive elements (e.g., data-testid='campus-switcher', data-testid='hero-search-input', data-testid='suggestion-tile-1').",
+    "Load Google Fonts: 'Playfair Display' and 'Manrope' in your HTML/CSS."
+  ]
+}
