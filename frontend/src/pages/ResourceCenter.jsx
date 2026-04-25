@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, MenuIcon } from "lucide-react";
+import { ArrowUp, Info, MenuIcon, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { SuggestionTiles } from "../components/SuggestionTiles";
 import { ChatMessage, ThinkingBubble } from "../components/ChatMessage";
+import { useAuth } from "../lib/auth";
 import {
   askCompass,
   fetchCampuses,
@@ -20,6 +21,8 @@ export const ResourceCenter = () => {
   const { campusSlug = "john-jay" } = useParams();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const { user, loading: authLoading } = useAuth();
+  const isGuest = !authLoading && !user;
 
   const [campuses, setCampuses] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -48,9 +51,14 @@ export const ResourceCenter = () => {
   }, []);
 
   useEffect(() => {
+    if (!user) {
+      setRecent([]);
+      setSaved([]);
+      return;
+    }
     fetchHistory().then(setRecent).catch(() => {});
     fetchSaved().then(setSaved).catch(() => {});
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -87,7 +95,15 @@ export const ResourceCenter = () => {
         },
       ]);
 
-      fetchHistory().then(setRecent).catch(() => {});
+      // Guest mode: keep an in-memory "recent" trail; signed-in users get the persisted one.
+      if (isGuest) {
+        setRecent((prev) => [
+          { id: `g-${Date.now()}`, query: q, campus: data.campus, created_at: new Date().toISOString() },
+          ...prev,
+        ].slice(0, 25));
+      } else {
+        fetchHistory().then(setRecent).catch(() => {});
+      }
     } catch (err) {
       console.error("Compass error", err);
       toast.error("Compass couldn't reach the AI. Try again in a moment.");
@@ -101,6 +117,11 @@ export const ResourceCenter = () => {
   };
 
   const handleSave = async (msg) => {
+    if (isGuest) {
+      toast.info("Sign up to save resources — they'll vanish when you leave as a guest.");
+      navigate("/signup");
+      return;
+    }
     const title = (msg.query || msg.text.slice(0, 60)).slice(0, 100);
     try {
       const s = await saveResource({
@@ -152,6 +173,32 @@ export const ResourceCenter = () => {
         sidebarToggle={chatStarted ? sidebarToggle : null}
       />
 
+      {/* Guest disclaimer */}
+      {isGuest && (
+        <div
+          className="bg-cuny-gold/15 border-b border-cuny-gold/40"
+          data-testid="guest-disclaimer-banner"
+        >
+          <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-2 flex items-center justify-between gap-3 text-sm text-cuny-navy">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Info className="w-4 h-4 flex-none" />
+              <span className="truncate">
+                <strong>Guest mode</strong> — ask anything you want. Nothing is saved; your queries
+                and bookmarks vanish when you close this tab.
+              </span>
+            </div>
+            <Link
+              to="/signup"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cuny-navy text-white text-xs font-semibold hover:bg-cuny-navyDeep transition flex-none"
+              data-testid="guest-signup-cta"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Sign up to save
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Campus banner strip */}
       {campus && (
         <div
@@ -199,7 +246,7 @@ export const ResourceCenter = () => {
                       style={{ borderColor: `${campus?.theme.primary}30`, color: campus?.theme.primary }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: campus?.theme.accent }} />
-                      Resource Hub
+                      {isGuest ? "Guest hub" : "Resource Hub"}
                     </div>
                     <h1
                       className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tight"

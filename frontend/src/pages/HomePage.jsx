@@ -55,7 +55,7 @@ export const HomePage = () => {
                 events, advising, financial aid, or safety, and get cited answers in seconds.
               </p>
 
-              <div className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
                 <button
                   onClick={enterHub}
                   className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-cuny-navy text-white font-semibold hover:bg-cuny-navyDeep transition shadow-lg shadow-cuny-navy/20"
@@ -65,15 +65,31 @@ export const HomePage = () => {
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 {!user && (
-                  <Link
-                    to="/login"
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-cuny-navy/20 bg-white text-cuny-navy font-semibold hover:border-cuny-navy transition"
-                    data-testid="home-cta-login"
-                  >
-                    Sign in
-                  </Link>
+                  <>
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-cuny-navy/20 bg-white text-cuny-navy font-semibold hover:border-cuny-navy transition"
+                      data-testid="home-cta-login"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      to="/campus/john-jay?guest=1"
+                      className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full text-cuny-navy/80 font-medium hover:text-cuny-navy hover:bg-cuny-navy/5 transition"
+                      data-testid="home-cta-guest"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Try without signing up
+                    </Link>
+                  </>
                 )}
               </div>
+              {!user && (
+                <div className="mt-4 text-xs text-ink-500 max-w-md leading-relaxed" data-testid="home-guest-disclaimer">
+                  Guest mode is fully open — ask away. Just note that nothing you ask or any
+                  resource you bookmark is saved when you leave the page.
+                </div>
+              )}
 
               <div className="mt-10 flex items-center gap-8 text-xs uppercase tracking-[0.18em] font-mono text-ink-500">
                 <div className="flex items-center gap-2"><Compass className="w-4 h-4 text-cuny-navy" /> 17 campuses</div>
@@ -206,7 +222,7 @@ export const HomePage = () => {
           <p className="mt-3 text-ink-700 max-w-xl mx-auto">
             Create a free Student Compass account. Pick a username, pick your home campus, and start asking.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 flex-wrap">
             <Link
               to="/signup"
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-cuny-navy text-white font-semibold hover:bg-cuny-navyDeep transition shadow-lg shadow-cuny-navy/20"
@@ -220,6 +236,14 @@ export const HomePage = () => {
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-cuny-navy/20 bg-white text-cuny-navy font-semibold hover:border-cuny-navy transition"
             >
               I already have an account
+            </Link>
+            <Link
+              to="/campus/john-jay?guest=1"
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full text-cuny-navy/80 font-medium hover:text-cuny-navy hover:bg-cuny-navy/5 transition"
+              data-testid="home-bottom-guest"
+            >
+              <Sparkles className="w-4 h-4" />
+              Try as guest
             </Link>
           </div>
         </section>

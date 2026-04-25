@@ -212,6 +212,19 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     return user
 
 
+async def get_current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """Returns the user if a valid Bearer token is present, otherwise None (guest)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization[7:].strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.InvalidTokenError:
+        return None
+    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+    return user
+
+
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
@@ -513,9 +526,9 @@ async def me(user=Depends(get_current_user)):
     )
 
 
-# ---------- Chat (auth required) ----------
+# ---------- Chat (guest-friendly: optional auth) ----------
 @api.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest, user=Depends(get_current_user)):
+async def chat(req: ChatRequest, user=Depends(get_current_user_optional)):
     if not req.message.strip():
         raise HTTPException(400, "message cannot be empty")
     campus_slug = req.campus if req.campus in CAMPUS_BY_SLUG else "john-jay"
@@ -526,15 +539,17 @@ async def chat(req: ChatRequest, user=Depends(get_current_user)):
     context, sources = await gather_context(req.message, campus)
     answer = await claude_answer(req.message, context, campus["name"])
 
-    await db.chat_messages.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user["id"],
-        "campus": target_slug,
-        "query": req.message,
-        "answer": answer,
-        "sources": [s.model_dump() for s in sources],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    # Persist only for signed-in users
+    if user:
+        await db.chat_messages.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "campus": target_slug,
+            "query": req.message,
+            "answer": answer,
+            "sources": [s.model_dump() for s in sources],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
 
     return ChatResponse(answer=answer, campus=target_slug, sources=sources, cross_campus_redirect=redirect)
 

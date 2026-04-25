@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 3 (guest mode) tested end-to-end. Backend pytest: 22/22 PASS in 51.6s — including 3 NEW guest tests: (a) POST /api/chat without Bearer returns 200 with answer + sources + cross_campus_redirect; (b) POST /api/chat with invalid Bearer ('Bearer not.a.real.jwt') gracefully degrades to guest 200 (no 401); (c) guest /api/chat does NOT persist — verified by snapshotting an authenticated user's /api/history before/after a guest call and confirming length unchanged and the marker query 'TEST_guest_marker_query' is absent. Existing auth-only endpoints still 401 without Bearer: /api/history, GET/POST/DELETE /api/saved-resources. Frontend Playwright (5/5 PASS guest + 2/2 PASS signed-in): home shows three CTAs (home-cta-primary, home-cta-login, home-cta-guest) + home-guest-disclaimer with copy 'Guest mode is fully open'; bottom CTA section shows home-bottom-guest. Clicking 'Try without signing up' → /campus/john-jay?guest=1 with NO redirect to /login; guest-disclaimer-banner reads exactly 'Guest mode — ask anything you want. Nothing is saved; your queries and bookmarks vanish when you close this tab.' with guest-signup-cta link to /signup. Hero pill renders 'Guest hub' for guests vs 'Resource Hub' for signed-in users. Guest can submit a query → AI reply with sources rendered. Guest clicking save-resource-btn → toast 'Sign up to save…' + redirect to /signup. Signed-in user (fresh TEST_g3 account): NO guest-disclaimer-banner, pill 'Resource Hub', save-resource-btn writes to backend (toast 'Saved to your resources') and item appears in sidebar 'Saved Resources'. Direct nav to /campus/hunter as guest does NOT redirect to /login. No critical bugs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py get_current_user_optional() correctly catches jwt.InvalidTokenError but does NOT explicitly catch ExpiredSignatureError (subclass of InvalidTokenError so it works, but adding an explicit branch + log line would help debugging stale tokens silently being demoted to guest).",
+    "ResourceCenter.jsx /campus/:slug is now public, but ProtectedRoute wrapper was removed entirely. If you later add an admin sub-route, ensure ProtectedRoute is reintroduced selectively rather than relying on conditional UI only.",
+    "ResourceCenter.jsx isGuest = !authLoading && !user — during the initial auth-loading window the page briefly renders as if signed-in (no banner). Consider showing a neutral placeholder until authLoading resolves to avoid a flash of wrong UI for slow auth round-trips.",
+    "HomePage.jsx guest CTA hardcodes /campus/john-jay?guest=1 — for users with a different home_campus preference detected via geo/locale this would still default to John Jay. Acceptable for guest, just flagged.",
+    "Guest in-memory recent log lives in component state and is wiped on full reload (expected per spec) but also wipes on simply navigating to a different /campus/:slug. Consider sessionStorage so guests keep recent queries when they switch campuses within the same tab.",
+    "/api/chat persistence is gated on `if user:` — good. Recommend adding a unit test that asserts NO chat_messages doc is written for a guest by querying the collection directly (current test infers via /api/history scoping which is sufficient but indirect).",
+    "Pre-existing (iteration 2) unfixed: CORS allow_credentials=True with allow_origins='*' violates spec; /auth/login generic 401 is good but brute-force lock is per-account only (no IP rate limit); @app.on_event deprecated in favor of lifespan."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "100% (5/5 guest + 2/2 signed-in critical flows)"},
+  "test_credentials": "Tests create fresh TEST_<uuid>@cuny.edu / compass123 users via /api/auth/register. Frontend test created TEST_g3_<ts>@cuny.edu. alice.test@cuny.edu may still be locked from prior runs.",
+  "seed_data_creation": "Pytest run created ~7 TEST_*@cuny.edu users + transient saved_resources doc (deleted in teardown). Frontend test created 1 TEST_g3 user with 1 saved_resource. All TEST_-prefixed for cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 3 added guest mode. Key testids: home-cta-primary/login/guest, home-bottom-guest, home-guest-disclaimer, guest-disclaimer-banner, guest-signup-cta, save-resource-btn, hero-search-input/submit, chat-scroll, chat-input/submit, resource-center, campus-banner, signup-{form,username,email,password,submit}. /api/chat is now public; auth is OPTIONAL via get_current_user_optional() at server.py:215. Persistence is gated on `if user:`. /api/history and /api/saved-resources still REQUIRE Bearer (still 401 without). Frontend route /campus/:slug NO LONGER protected — direct guest nav works. Pill text differentiator: 'Guest hub' vs 'Resource Hub'. Guest recent-queries are in-memory only (component state). CHAT_TIMEOUT=120s for live Firecrawl/Tavily/Claude. REACT_APP_BACKEND_URL must be exported when running pytest from shell.",
+  "rca_of_the_issue": "No bugs found. Iteration 3 implementation is consistent with the spec."
+}

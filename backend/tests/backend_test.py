@@ -165,11 +165,53 @@ class TestMe:
         assert r.status_code == 401, r.text
 
 
-# ----- /api/chat (auth required) -----
+# ----- /api/chat (guest-friendly: optional auth, iteration 3) -----
 class TestChat:
-    def test_chat_requires_auth(self, s):
-        r = s.post(f"{API}/chat", json={"message": "hi", "campus": "john-jay"}, timeout=30)
-        assert r.status_code == 401, r.text
+    def test_chat_guest_no_bearer_returns_200(self, s):
+        """Iteration 3: chat is now public. No Bearer => 200, not 401."""
+        r = s.post(
+            f"{API}/chat",
+            json={"message": "What student services are available?", "campus": "john-jay"},
+            timeout=CHAT_TIMEOUT,
+        )
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert isinstance(d["answer"], str) and len(d["answer"]) > 20
+        assert d["campus"] == "john-jay"
+        assert isinstance(d["sources"], list)
+        assert "cross_campus_redirect" in d
+
+    def test_chat_invalid_bearer_treated_as_guest(self, s):
+        """Iteration 3: invalid/expired token must NOT 401 — graceful guest fallback."""
+        r = s.post(
+            f"{API}/chat",
+            headers={"Authorization": "Bearer not.a.real.jwt"},
+            json={"message": "Where is financial aid?", "campus": "john-jay"},
+            timeout=CHAT_TIMEOUT,
+        )
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert isinstance(d["answer"], str) and len(d["answer"]) > 0
+
+    def test_chat_guest_does_not_persist(self, s, auth_user):
+        """Verify guest /api/chat does NOT create a chat_messages doc.
+        We use the authenticated user's /api/history before+after a guest chat
+        to ensure the guest call did not piggy-back."""
+        token, _, _ = auth_user
+        h = {"Authorization": f"Bearer {token}"}
+        before = s.get(f"{API}/history", headers=h, timeout=30).json()["items"]
+        # Guest chat
+        rg = s.post(
+            f"{API}/chat",
+            json={"message": "TEST_guest_marker_query about hours", "campus": "john-jay"},
+            timeout=CHAT_TIMEOUT,
+        )
+        assert rg.status_code == 200, rg.text
+        after = s.get(f"{API}/history", headers=h, timeout=30).json()["items"]
+        # Ensure guest chat did not appear in this user's history
+        assert all("TEST_guest_marker_query" not in (it.get("query") or "") for it in after)
+        # And history length for this user should not have grown from the guest call
+        assert len(after) == len(before), (len(before), len(after))
 
     def test_chat_success_returns_answer_and_sources(self, s, auth_user):
         token, _, _ = auth_user
