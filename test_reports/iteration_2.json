@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 2 (auth + per-campus theming) e2e tested. Backend: 20/20 pytest pass — register (success, dup email 409, dup username 409, weak pw 422, bad email 422), login (success, wrong pw 401, brute-force 3rd attempt → 403 'Too many attempts. Account locked for 60s.', subsequent 403 even with right pw), /auth/me (200 / 401 / 401), /api/chat now requires Bearer (401 without; 200 with cross_campus_redirect=hunter for 'How do I apply for events at Hunter College?' on john-jay session), /api/history scoped per user, /api/saved-resources CRUD scoped per user (other user's DELETE returns deleted=0), /api/campuses returns full theme object per campus with verified colors (LaGuardia #C8102E, Hunter #7B2D8E, John-Jay #003366). Frontend: Home About + CTAs render; Signup happy-path stores sc_token and redirects to /campus/{home_campus}; Login wrong-password shows error and right-password redirects (uses location.state.from when present, else home_campus); Per-campus theme correctly applied via --theme-primary CSS var on [data-testid=resource-center] and [data-testid=campus-banner] gradient (verified Hunter purple, LaGuardia red, John-Jay navy); Protected /campus/* redirects to /login when sc_token cleared; Header user-menu-trigger shows username chip, dropdown has user-menu-hub + user-menu-logout; Sign-out clears sc_token and lands on /. No critical bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: brute-force lock is keyed by user record only; an attacker can still rotate emails. Consider IP-based rate limiting on /api/auth/login.",
+    "server.py: lock_until comparison uses datetime.now(tz=utc) but stores as ISO string — works, but a TTL index or explicit datetime field would be cleaner and survive timezone drift.",
+    "server.py /auth/login returns 404 'No account found for that email.' — this leaks account existence (user-enumeration vector). Recommend returning generic 401 'Invalid credentials' for both unknown email and wrong password.",
+    "server.py CORS: allow_credentials=True with allow_origins='*' is invalid per spec — most browsers reject. Set CORS_ORIGINS to explicit origins (REACT_APP_BACKEND_URL) when credentials=true.",
+    "server.py @app.on_event('startup'/'shutdown') is deprecated in current FastAPI — switch to lifespan context manager.",
+    "server.py: detect_cross_campus pulls trigger words from a hardcoded dict; phrases like 'lehman' or 'york' alone could falsely redirect on unrelated CCNY/JJ chats — keep the trigger list specific (e.g., 'lehman college', 'york college') as currently done, but add tests for false-positive cases.",
+    "auth.jsx / LoginPage.jsx: redirect uses `location.state.from || home_campus`. Good. But ensure ProtectedRoute always passes from=current pathname so deep-links survive login round-trip (currently OK).",
+    "Header user-menu testids use 'user-menu-logout' while the prompt referenced 'user-menu-signout' — minor naming inconsistency between docs and code (code is fine; update docs)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20)",
+    "frontend": "100% on critical flows: home, signup, login (wrong+right), per-campus theme (Hunter/LaGuardia/John-Jay), protected route, user menu, sign out"
+  },
+  "test_credentials": "Tests create their own TEST_<uuid>@cuny.edu / compass123 users via /api/auth/register; existing alice.test@cuny.edu may be locked. Backend test fixture auto-registers fresh users to avoid lockout collisions.",
+  "seed_data_creation": "Each pytest run creates ~6 TEST_*@cuny.edu users + 1 saved_resource (deleted in teardown). Users persist in users collection but are namespaced with TEST_ prefix.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py — 20 tests, runs in ~22s, includes live Firecrawl/Tavily/Claude chat (CHAT_TIMEOUT=120s). Brute-force test triggers 60s lockout on a TEST_ user; if rerun within 60s for same fresh user, it still passes since each test registers a new uuid. Token stored in localStorage as `sc_token`. Frontend testids: signup-{form,username,email,password,submit}, login-{form,email,password,submit}, resource-center, campus-banner, user-menu-trigger, user-menu-hub, user-menu-logout (NOT user-menu-signout). Per-campus theme uses CSS var --theme-primary (NOT --campus-primary) on resource-center wrapper. Protected route is /campus/:slug; LoginPage redirects via location.state.from before falling back to home_campus.",
+  "rca_of_the_issue": "No bugs found that need RCA."
+}

@@ -14,13 +14,11 @@ import {
   fetchSaved,
   saveResource,
   deleteResource,
-  getSessionId,
 } from "../lib/api";
 
 export const ResourceCenter = () => {
   const { campusSlug = "john-jay" } = useParams();
   const navigate = useNavigate();
-  const sessionId = useMemo(() => getSessionId(), []);
   const scrollRef = useRef(null);
 
   const [campuses, setCampuses] = useState([]);
@@ -34,17 +32,26 @@ export const ResourceCenter = () => {
 
   const campus = campuses.find((c) => c.slug === campusSlug);
 
-  // Initial loads
+  // Apply per-campus theme via CSS variables
+  const themeStyle = useMemo(() => {
+    if (!campus?.theme) return {};
+    return {
+      "--theme-primary": campus.theme.primary,
+      "--theme-accent": campus.theme.accent,
+      "--theme-tint": campus.theme.tint,
+      "--theme-ink": campus.theme.ink,
+    };
+  }, [campus]);
+
   useEffect(() => {
     fetchCampuses().then(setCampuses);
   }, []);
 
   useEffect(() => {
-    fetchHistory(sessionId).then(setRecent).catch(() => {});
-    fetchSaved(sessionId).then(setSaved).catch(() => {});
-  }, [sessionId]);
+    fetchHistory().then(setRecent).catch(() => {});
+    fetchSaved().then(setSaved).catch(() => {});
+  }, []);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -61,10 +68,11 @@ export const ResourceCenter = () => {
     setLoading(true);
 
     try {
-      const data = await askCompass({ message: q, campus: campusSlug, sessionId });
+      const data = await askCompass({ message: q, campus: campusSlug });
 
       if (data.cross_campus_redirect && data.cross_campus_redirect !== campusSlug) {
-        toast.info(`Compass detected a question about ${data.cross_campus_redirect.replace(/-/g, " ")}.`);
+        const target = campuses.find((c) => c.slug === data.cross_campus_redirect);
+        toast.info(`Compass detected a question about ${target?.short || data.cross_campus_redirect}.`);
       }
 
       setMessages((prev) => [
@@ -79,8 +87,7 @@ export const ResourceCenter = () => {
         },
       ]);
 
-      // Refresh recent
-      fetchHistory(sessionId).then(setRecent).catch(() => {});
+      fetchHistory().then(setRecent).catch(() => {});
     } catch (err) {
       console.error("Compass error", err);
       toast.error("Compass couldn't reach the AI. Try again in a moment.");
@@ -96,14 +103,13 @@ export const ResourceCenter = () => {
   const handleSave = async (msg) => {
     const title = (msg.query || msg.text.slice(0, 60)).slice(0, 100);
     try {
-      const saved = await saveResource({
-        session_id: sessionId,
+      const s = await saveResource({
         title,
         content: msg.text.slice(0, 600),
         campus: msg.campus || campusSlug,
         sources: msg.sources || [],
       });
-      setSaved((prev) => [saved, ...prev]);
+      setSaved((prev) => [s, ...prev]);
       toast.success("Saved to your resources.");
     } catch {
       toast.error("Could not save resource.");
@@ -134,7 +140,7 @@ export const ResourceCenter = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col" data-testid="resource-center">
+    <div className="h-screen flex flex-col campus-theme" style={themeStyle} data-testid="resource-center">
       <Header
         campuses={campuses}
         current={campusSlug}
@@ -145,6 +151,23 @@ export const ResourceCenter = () => {
         }}
         sidebarToggle={chatStarted ? sidebarToggle : null}
       />
+
+      {/* Campus banner strip */}
+      {campus && (
+        <div
+          className="border-b"
+          style={{ background: `linear-gradient(90deg, ${campus.theme.primary} 0%, ${campus.theme.ink} 100%)` }}
+          data-testid="campus-banner"
+        >
+          <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-2 flex items-center justify-between text-white text-xs font-mono uppercase tracking-[0.22em]">
+            <span className="opacity-80">{campus.tier} · {campus.domain}</span>
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: campus.theme.accent }} />
+              <span className="font-serif normal-case tracking-normal text-base">{campus.short}</span>
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex min-h-0">
         {chatStarted && (
@@ -171,11 +194,17 @@ export const ResourceCenter = () => {
               >
                 <div className="max-w-[920px] mx-auto px-6 md:px-10 pt-10 md:pt-16 pb-32">
                   <div className="text-center mb-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cuny-navy/15 bg-white text-xs font-mono uppercase tracking-[0.18em] text-cuny-navy mb-6">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cuny-gold" />
+                    <div
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-white text-xs font-mono uppercase tracking-[0.18em] mb-6"
+                      style={{ borderColor: `${campus?.theme.primary}30`, color: campus?.theme.primary }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: campus?.theme.accent }} />
                       Resource Hub
                     </div>
-                    <h1 className="font-serif text-cuny-navy text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tight">
+                    <h1
+                      className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tight"
+                      style={{ color: campus?.theme.primary }}
+                    >
                       <span className="italic">{campus?.short || "John Jay"}</span> Compass
                     </h1>
                     <p className="mt-3 text-ink-700 max-w-xl mx-auto">
@@ -183,14 +212,14 @@ export const ResourceCenter = () => {
                     </p>
                   </div>
 
-                  {/* Hero search */}
                   <motion.form
                     layoutId="compass-search"
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleAsk();
                     }}
-                    className="hero-glow rounded-2xl bg-white border border-cuny-navy/10 p-2 flex items-center gap-2"
+                    className="hero-glow rounded-2xl bg-white border p-2 flex items-center gap-2"
+                    style={{ borderColor: `${campus?.theme.primary}30` }}
                     data-testid="hero-search-form"
                   >
                     <input
@@ -204,7 +233,8 @@ export const ResourceCenter = () => {
                     <button
                       type="submit"
                       disabled={!input.trim()}
-                      className="w-12 h-12 rounded-xl bg-cuny-navy text-white flex items-center justify-center hover:bg-cuny-navyDeep transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-12 h-12 rounded-xl text-white flex items-center justify-center transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: campus?.theme.primary || "#003366" }}
                       data-testid="hero-search-submit"
                     >
                       <ArrowUp className="w-5 h-5" />
@@ -229,9 +259,9 @@ export const ResourceCenter = () => {
                 <div ref={scrollRef} className="flex-1 overflow-y-auto" data-testid="chat-scroll">
                   <div className="max-w-[820px] mx-auto px-6 md:px-8 py-8 space-y-6">
                     {messages.map((m) => (
-                      <ChatMessage key={m.id} message={m} onSave={handleSave} />
+                      <ChatMessage key={m.id} message={m} onSave={handleSave} accent={campus?.theme} />
                     ))}
-                    {loading && <ThinkingBubble />}
+                    {loading && <ThinkingBubble accent={campus?.theme} />}
                   </div>
                 </div>
 
@@ -245,7 +275,10 @@ export const ResourceCenter = () => {
                     className="max-w-[820px] mx-auto px-6 md:px-8 py-4"
                     data-testid="chat-input-form"
                   >
-                    <div className="hero-glow rounded-2xl bg-white border border-cuny-navy/10 p-2 flex items-center gap-2">
+                    <div
+                      className="hero-glow rounded-2xl bg-white border p-2 flex items-center gap-2"
+                      style={{ borderColor: `${campus?.theme.primary}30` }}
+                    >
                       <input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -256,7 +289,8 @@ export const ResourceCenter = () => {
                       <button
                         type="submit"
                         disabled={!input.trim() || loading}
-                        className="w-10 h-10 rounded-xl bg-cuny-navy text-white flex items-center justify-center hover:bg-cuny-navyDeep transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-10 h-10 rounded-xl text-white flex items-center justify-center transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ background: campus?.theme.primary || "#003366" }}
                         data-testid="chat-submit"
                       >
                         <ArrowUp className="w-4 h-4" />
