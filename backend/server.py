@@ -182,17 +182,37 @@ class HistoryItem(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+CROSS_CAMPUS_TRIGGERS = {
+    # Distinctive phrases that strongly indicate a specific campus.
+    "john-jay": ["john jay"],
+    "baruch": ["baruch"],
+    "hunter": ["hunter college", "hunter cuny", "at hunter"],
+    "city": ["ccny", "city college"],
+    "brooklyn": ["brooklyn college"],
+    "queens": ["queens college"],
+    "lehman": ["lehman college", "lehman"],
+    "york": ["york college"],
+    "csi": ["college of staten island", "csi cuny"],
+    "medgar-evers": ["medgar evers"],
+    "bmcc": ["bmcc", "borough of manhattan"],
+    "laguardia": ["laguardia"],
+    "kingsborough": ["kingsborough"],
+    "queensborough": ["queensborough"],
+    "bronx-cc": ["bronx community"],
+    "hostos": ["hostos"],
+    "guttman": ["guttman"],
+}
+
+
 def detect_cross_campus(message: str, current_slug: str) -> Optional[str]:
-    """Detect whether the user mentions a different CUNY campus."""
+    """Detect whether the user mentions a different CUNY campus by curated triggers."""
     msg = message.lower()
-    for c in CUNY_CAMPUSES:
-        if c["slug"] == current_slug:
+    for slug, triggers in CROSS_CAMPUS_TRIGGERS.items():
+        if slug == current_slug:
             continue
-        names = [c["short"].lower(), c["name"].lower(), c["domain"].split(".")[0]]
-        for n in names:
-            # word boundary match
-            if re.search(rf"\b{re.escape(n)}\b", msg):
-                return c["slug"]
+        for t in triggers:
+            if re.search(rf"\b{re.escape(t)}\b", msg):
+                return slug
     return None
 
 
