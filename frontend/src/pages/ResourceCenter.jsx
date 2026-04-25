@@ -22,7 +22,10 @@ export const ResourceCenter = () => {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
-  const isGuest = !authLoading && !user;
+  // Synchronous guest detection avoids a flash of "signed-in" UI during the brief
+  // auth-loading round-trip on initial mount.
+  const hasToken = typeof window !== "undefined" && !!localStorage.getItem("sc_token");
+  const isGuest = !user && (!authLoading || !hasToken);
 
   const [campuses, setCampuses] = useState([]);
   const [messages, setMessages] = useState([]);

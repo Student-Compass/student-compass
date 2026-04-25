@@ -1,71 +1,78 @@
 # Student Compass — PRD
 
 ## Original Problem Statement
-Build a full-stack web application "Student Compass" — an AI-powered assistant for CUNY students to navigate campus resources and discover events across the entire CUNY network. Flagship: John Jay College. Architecture must support cross-campus retrieval. Iteration 2 added: Home/About menu, JWT auth (username + password), per-campus accent theming.
+Build a full-stack web application "Student Compass" — an AI assistant for CUNY students to navigate campus resources and discover events across the entire CUNY network. Flagship: John Jay; architecture supports cross-campus retrieval.
 
 ## Architecture
 - **Backend**: FastAPI + Motor (async MongoDB), bcrypt + pyjwt for JWT auth
 - **Frontend**: React (CRA), Tailwind, shadcn/ui, Framer Motion, react-fast-marquee, Lucide, sonner
-- **AI/RAG**: Tavily site-restricted search → Firecrawl scrape to Markdown → Claude Sonnet 4.5 answers with citations (auth-required)
-- **Auth**: JWT in `Authorization: Bearer` header (token in localStorage), bcrypt hashing, brute-force lockout (3 attempts → 60s)
-- **Cross-campus**: curated trigger phrases auto-redirect target URL
-
-## Per-Campus Theming
-Each of the 17 CUNY campuses has a `theme` object with `primary` / `accent` / `tint` / `ink` colors. The Resource Hub applies these as CSS variables and inline styles, so John Jay = navy, Hunter = purple, LaGuardia = red, CCNY = burgundy, etc.
+- **AI/RAG**: Tavily site-restricted search → Firecrawl scrape to Markdown → Claude Sonnet 4.5
+- **Auth model**: JWT in `Authorization: Bearer` header (token in localStorage); brute-force lockout 3 attempts → 60s; **guest mode** allows full chat usage without an account, but nothing persists
+- **Per-campus theming**: each of 17 campuses has unique `{primary, accent, tint, ink}` palette applied via CSS variables in the Resource Hub
 
 ## Endpoints
 **Public**
-- `GET /api/campuses` — 17 CUNY campuses with full theme
-- `POST /api/auth/register` — `{email, username, password, home_campus}` → `{token, user}`
-- `POST /api/auth/login` — `{email, password}` → `{token, user}` (generic 401 to prevent enumeration)
+- `GET /api/campuses`
+- `POST /api/auth/register`, `POST /api/auth/login` (generic 401 to prevent enumeration)
+- `POST /api/chat` — **guest-friendly**, optional auth; persists only when authenticated
 
 **Auth required**
-- `GET /api/auth/me` — current user
-- `POST /api/chat` — RAG chat
-- `GET /api/history` — user's chat history
-- `POST/GET/DELETE /api/saved-resources` — bookmark CRUD scoped per user
+- `GET /api/auth/me`
+- `GET /api/history`
+- `POST/GET/DELETE /api/saved-resources`
 
 ## User Personas
 - **CUNY Undergraduate** (primary): one place to ask any campus question
-- **Cross-campus visitor**: Baruch student asking about Hunter
-- **Commuter** with 15 minutes between classes
-- **Freshman** who hasn't memorized acronyms
+- **Cross-campus visitor**: asking about a different CUNY college
+- **Casual try-it-out user (guest)**: ask once, no signup, no save
+- **Commuter** with 15 minutes between classes; **Freshman** learning acronyms
 
 ## Implemented (Feb 2026)
 ### Iteration 1
-- [x] Spinning Compass SVG with `calibrateSpin` 6s cubic-bezier snap-to-north
-- [x] Searchable Campus Switcher (Popover + Command, senior + community)
+- [x] Spinning Compass logo with `calibrateSpin` animation
+- [x] Searchable Campus Switcher (17 colleges)
 - [x] CUNY logo marquee (greyscale → color hover)
-- [x] Resource Center: massive hero search → Framer Motion `layoutId` progressive disclosure → Claude-style chat
-- [x] 4 Suggestion Tiles, Chat with sources + Save Resource, Sidebar (Recent + Saved)
+- [x] Resource Center with progressive disclosure → Claude-style chat
+- [x] 4 Suggestion Tiles, Sidebar (Recent + Saved), Save Resource
 - [x] Cross-campus query detection
 - [x] Real RAG (Tavily + Firecrawl + Claude Sonnet 4.5)
 
-### Iteration 2 (current)
-- [x] Home / Main Menu page with About story ("group of CUNY students building for CUNY students")
-- [x] Login + Signup pages with split-panel CUNY-navy brand aesthetic
-- [x] JWT auth (Bearer in localStorage), bcrypt, brute-force lockout (3 → 60s)
-- [x] User menu in header (username chip, My Hub, Sign out)
-- [x] Per-campus theming applied to Resource Hub (banner gradient, primary buttons, headings)
-- [x] Protected Route — `/campus/*` redirects to `/login`
+### Iteration 2 — Auth + Theming
+- [x] Home / Main Menu page with About story
+- [x] Login + Signup pages with split-panel CUNY-navy aesthetic
+- [x] JWT auth, bcrypt, brute-force lockout (3 → 60s)
+- [x] User menu in header (My Hub, Sign out)
+- [x] Per-campus accent theming on Resource Hub (banner gradient, primary buttons)
 - [x] Generic 401 to prevent account-enumeration
+
+### Iteration 3 — Guest Mode (current)
+- [x] `POST /api/chat` accepts optional auth — guests get full Claude RAG, no persistence
+- [x] Removed ProtectedRoute on `/campus/*` — public access
+- [x] Three CTAs on home: "Create your account", "Sign in", "Try without signing up"
+- [x] Guest disclaimer copy on home page
+- [x] Resource Hub gold banner: "Guest mode — ask anything you want. Nothing is saved..."
+- [x] "Sign up to save" CTA in banner; clicking Save Resource as guest → toast + redirect to /signup
+- [x] Pill differentiator: "Guest hub" vs "Resource Hub"
+- [x] Guest recent queries kept in component state (last 25); wiped on reload (expected)
 
 ## Backlog
 ### P1
-- [ ] Replace markdown injection with sanitized renderer (DOMPurify or react-markdown)
-- [ ] IP-based rate limit on `/api/auth/login` (defense vs. user-rotation brute-force)
-- [ ] Per-session rate limit on `/api/chat` (paid APIs)
-- [ ] Sidebar persistence after "New conversation"
+- [ ] Persist guest recent-queries to sessionStorage (survives campus switching within same tab)
+- [ ] Sanitize markdown rendering (DOMPurify or react-markdown)
+- [ ] IP-based rate-limit on `/api/auth/login`
+- [ ] Per-IP rate-limit on `/api/chat` (paid Firecrawl + Claude)
 
 ### P2
-- [ ] Forgot password / password reset flow
+- [ ] Forgot-password flow (Resend/SMTP)
 - [ ] Add-to-Calendar / Email-this on event answers (shareability)
 - [ ] Streaming Claude responses
-- [ ] Public profile pages with username (creative show-off)
+- [ ] Public profile pages at `/u/{username}` with shareable saved resources
 - [ ] Migrate `on_event` to FastAPI lifespan context manager
+- [ ] Auth-loading skeleton placeholder for ResourceCenter (replace synchronous token check)
 
 ## Next Tasks (priority order)
-1. Markdown sanitization
-2. IP-based login rate-limit
-3. Forgot-password flow (Resend / SMTP)
-4. Profile pages + share links
+1. Per-IP rate-limit on `/api/chat` (now that guests can hammer it freely)
+2. sessionStorage for guest recents
+3. Markdown sanitization
+4. Forgot-password flow
+5. Public profile + share links
